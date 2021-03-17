@@ -22,10 +22,8 @@ public class OptionalTaskAirport implements Runnable {
                 Thread.sleep(2000);
                 System.out.println("Plane " + planeNumber + " has taken off successfully");
                 Thread.sleep(500);
-
                 System.out.println("Path is free after plane " + planeNumber + " has taken off");
                 semaphore.release();
-
                 Thread.sleep(500);
         } catch (InterruptedException e) {
             System.out.println("Plane " + planeNumber + " has problems");
