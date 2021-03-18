@@ -4,7 +4,7 @@ import java.util.concurrent.Semaphore;
 
 public class Plane extends Thread {
 
-    public Semaphore path;
+    private Semaphore path;
     private int planeId;
 
     public Plane(Semaphore path, int planeId) {

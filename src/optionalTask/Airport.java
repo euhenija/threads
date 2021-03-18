@@ -4,7 +4,9 @@ import java.util.concurrent.Semaphore;
 
 public class Airport {
     public static void main(String[] args) {
+
         Semaphore path = new Semaphore(5);
+
         new Plane(path, 1).start();
         new Plane(path, 2).start();
         new Plane(path, 3).start();
