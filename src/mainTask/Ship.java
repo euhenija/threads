@@ -1,40 +1,56 @@
 package mainTask;
 
-public class Ship {
+public class Ship implements Runnable {
+    private final Port destinationPort;
+    private final int maxShipCapacity;
+    private int currentShipCapacity;
+    private String aim;
 
-    private int shipMaxCapacity;
-    private int shipCurrentCapacity;
-
-    public Ship(int shipMaxCapacity, int shipCurrentCapacity) {
-        this.shipMaxCapacity = shipMaxCapacity;
-        this.shipCurrentCapacity = shipCurrentCapacity;
+    public Ship(Port port, int maxShipCapacity, int currentShipCapacity, String aim) {
+        this.destinationPort = port;
+        this.maxShipCapacity = maxShipCapacity;
+        this.currentShipCapacity = currentShipCapacity;
+        this.aim = aim;
     }
 
-    public int getMaxCapacity() {
-        return shipMaxCapacity;
+    public String getAim() {
+        return aim;
     }
 
-    public int getShipCurrentCapacity() {
-        return shipCurrentCapacity;
+    public int getCurrentShipCapacity() {
+        return currentShipCapacity;
     }
 
-    public void setShipCurrentCapacity(int shipCurrentCapacity) {
-        this.shipCurrentCapacity = shipCurrentCapacity;
-    }
-
-    public void loadShip (){
-        this.shipCurrentCapacity = shipMaxCapacity;
-    }
-
-    public void unloadShip (){
-        this.shipCurrentCapacity = 0;
+    public int getMaxShipCapacity() {
+        return maxShipCapacity;
     }
 
     @Override
-    public String toString() {
-        return "mainTask.Ship{" +
-                "shipMaxCapacity=" + shipMaxCapacity +
-                ", shipCurrentCapacity=" + shipCurrentCapacity +
-                '}';
+    public void run() {
+        try {
+
+            System.out.println(Thread.currentThread().getName() + " with max capacity " + this.getMaxShipCapacity() + " containers and " +
+                    getCurrentShipCapacity() + " containers on board, get to port. Queue: "
+                    + destinationPort.quantityOfFreeDocks.getQueueLength());
+            destinationPort.quantityOfFreeDocks.acquire();
+
+            if (this.getAim().equals("load")) {
+                int containersToLoad = maxShipCapacity - currentShipCapacity;
+                currentShipCapacity = maxShipCapacity;
+                destinationPort.putContainersFromPortToShip(containersToLoad);
+                Thread.sleep(500);
+            } else if (this.getAim().equals("unload")) {
+                Thread.sleep(500);
+                destinationPort.loading(currentShipCapacity);
+                currentShipCapacity = 0;
+            }
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } finally {
+            System.out.println(Thread.currentThread().getName() + " get out of port with: " +
+                    getCurrentShipCapacity() + " containers on board" + "  Quantity of containers in port: "
+                    + destinationPort.getCurrentQuantityOfContainers());
+            destinationPort.quantityOfFreeDocks.release();
+        }
     }
 }

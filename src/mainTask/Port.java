@@ -1,82 +1,64 @@
 package mainTask;
 
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-public class Port implements Runnable {
-    private Semaphore quantityOfFreeBerths;
-    public final int PORT_MAX_CAPACITY = 200;
-    private int portCurrentCapacity = 0;
-    private BlockingQueue<Ship> queueOfShips;
-    private ReentrantLock locker;
-    private Condition condition;
-    private Ship ship;
+public class Port {
 
-    public Port(BlockingQueue<Ship> queueOfShips) {
-        locker = new ReentrantLock();
-        condition = locker.newCondition();
-        this.queueOfShips = queueOfShips;
+    public Semaphore quantityOfFreeDocks;
+    private final int maxPortCapacity;
+    private int currentQuantityOfContainers;
+    private final Lock locker = new ReentrantLock();
+    private final Condition conLoading = locker.newCondition();
+    private final Condition conUnloading = locker.newCondition();
+
+    public Port(int countDocks, int maxContainers, int currentQuantityOfContainers) {
+        quantityOfFreeDocks = new Semaphore(countDocks, true);
+        this.maxPortCapacity = maxContainers;
+        this.currentQuantityOfContainers = currentQuantityOfContainers;
     }
 
-    @Override
-    public void run() {
-        try {
-
-            while (!queueOfShips.isEmpty()) {
-                //quantityOfFreeBerths.acquire();
-                ship = queueOfShips.take();
-                if (ship.getShipCurrentCapacity() != 0) {
-                    putContainersFromShipToPort();
-                } else putContainersFromPortToShip();
-                // quantityOfFreeBerths.release();
-            }
-
-        } catch (InterruptedException e) {
-            System.out.println("mainTask.Ship has problems");
-        }
+    public int getCurrentQuantityOfContainers() {
+        return currentQuantityOfContainers;
     }
 
-    public void putContainersFromPortToShip() {
+    public int getMaxPortCapacity() {
+        return maxPortCapacity;
+    }
+
+    public void loading(int containers) {
         locker.lock();
         try {
-            while (portCurrentCapacity < 1)
-                condition.await();
-            portCurrentCapacity = portCurrentCapacity - (ship.getMaxCapacity() - ship.getShipCurrentCapacity());
-            if (portCurrentCapacity > 0) {
-                ship.setShipCurrentCapacity(0);
-                System.out.println((ship.getMaxCapacity() - ship.getShipCurrentCapacity()) + " containers were put out of port");
-                System.out.println(("Current quantity of containers in port: " + portCurrentCapacity));
-                condition.signalAll();
-            } else {
-                System.out.println("No containers in the port!");
-
+            while (currentQuantityOfContainers + containers >= maxPortCapacity) {
+                conLoading.await();
+                conUnloading.signalAll();
             }
+            currentQuantityOfContainers += containers;
         } catch (InterruptedException e) {
-            System.out.println(e.getMessage());
+            e.printStackTrace();
         } finally {
-            locker.unlock();
-        }
-
-    }
-
-    public void putContainersFromShipToPort() {
-
-        locker.lock();
-        try {
-            while (portCurrentCapacity >= PORT_MAX_CAPACITY)
-                condition.await();
-
-            portCurrentCapacity += ship.getShipCurrentCapacity();
-            System.out.println(ship.getShipCurrentCapacity() + " containers were pup in port");
-            System.out.println("Current quantity of containers in port: " + portCurrentCapacity);
-            condition.signalAll();
-        } catch (InterruptedException e) {
-            System.out.println(e.getMessage());
-        } finally {
+            System.out.println(Thread.currentThread().getName() + " get unloaded  " + containers + " container.");
+            conUnloading.signalAll();
             locker.unlock();
         }
     }
 
+    public void putContainersFromPortToShip(int containers) {
+        locker.lock();
+        try {
+            while (currentQuantityOfContainers + containers >= maxPortCapacity) {
+                conUnloading.await();
+                conLoading.signalAll();
+            }
+            currentQuantityOfContainers -= containers;
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } finally {
+            System.out.println(Thread.currentThread().getName() + " get loaded " + containers + " container.");
+            conLoading.signalAll();
+            locker.unlock();
+        }
+    }
 }
