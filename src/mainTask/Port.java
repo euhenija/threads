@@ -11,8 +11,8 @@ public class Port {
     private final int maxPortCapacity;
     private int currentQuantityOfContainers;
     private final Lock locker = new ReentrantLock();
-    private final Condition conLoading = locker.newCondition();
-    private final Condition conUnloading = locker.newCondition();
+    private final Condition conditionToLoad = locker.newCondition();
+    private final Condition conditionToUnload = locker.newCondition();
 
     public Port(int countDocks, int maxContainers, int currentQuantityOfContainers) {
         quantityOfFreeDocks = new Semaphore(countDocks, true);
@@ -28,19 +28,19 @@ public class Port {
         return maxPortCapacity;
     }
 
-    public void loading(int containers) {
+    public void putContainersFromShipToPort(int containers) {
         locker.lock();
         try {
             while (currentQuantityOfContainers + containers >= maxPortCapacity) {
-                conLoading.await();
-                conUnloading.signalAll();
+                conditionToLoad.await();
+                conditionToUnload.signalAll();
             }
             currentQuantityOfContainers += containers;
         } catch (InterruptedException e) {
             e.printStackTrace();
         } finally {
             System.out.println(Thread.currentThread().getName() + " get unloaded  " + containers + " container.");
-            conUnloading.signalAll();
+            conditionToUnload.signalAll();
             locker.unlock();
         }
     }
@@ -48,16 +48,16 @@ public class Port {
     public void putContainersFromPortToShip(int containers) {
         locker.lock();
         try {
-            while (currentQuantityOfContainers + containers >= maxPortCapacity) {
-                conUnloading.await();
-                conLoading.signalAll();
+            while (currentQuantityOfContainers - containers < 0) {
+                conditionToUnload.await();
+                conditionToLoad.signalAll();
             }
             currentQuantityOfContainers -= containers;
         } catch (InterruptedException e) {
             e.printStackTrace();
         } finally {
             System.out.println(Thread.currentThread().getName() + " get loaded " + containers + " container.");
-            conLoading.signalAll();
+            conditionToLoad.signalAll();
             locker.unlock();
         }
     }

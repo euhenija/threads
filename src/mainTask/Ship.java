@@ -28,7 +28,6 @@ public class Ship implements Runnable {
     @Override
     public void run() {
         try {
-
             System.out.println(Thread.currentThread().getName() + " with max capacity " + this.getMaxShipCapacity() + " containers and " +
                     getCurrentShipCapacity() + " containers on board, get to port. Queue: "
                     + destinationPort.quantityOfFreeDocks.getQueueLength());
@@ -41,7 +40,7 @@ public class Ship implements Runnable {
                 Thread.sleep(500);
             } else if (this.getAim().equals("unload")) {
                 Thread.sleep(500);
-                destinationPort.loading(currentShipCapacity);
+                destinationPort.putContainersFromShipToPort(currentShipCapacity);
                 currentShipCapacity = 0;
             }
         } catch (InterruptedException e) {
