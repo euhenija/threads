@@ -1,7 +1,6 @@
 package mainTask;
 
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
@@ -22,7 +21,7 @@ public class Port {
         this.currentQuantityOfContainers = new AtomicInteger(currentQuantityOfContainers);
     }
 
-    public int getCurrentQuantityOfContainers() {
+    public synchronized int getCurrentQuantityOfContainers() {
         return currentQuantityOfContainers.get();
     }
 
@@ -32,47 +31,65 @@ public class Port {
 
     public void putContainersFromShipToPort(int containers) throws InterruptedException {
         locker.lock();
-        int quantityOfAttemptsToUnload = 0;
-        try {
-            while (currentQuantityOfContainers.get() + containers > maxPortCapacity) {
-                quantityOfAttemptsToUnload++;
-                if(quantityOfAttemptsToUnload > 0){
-                    Thread.currentThread().interrupt();
-                }
-                conditionToLoad.await();
+        if (currentQuantityOfContainers.get() + containers > maxPortCapacity) {
+            tryToLoadOrUnloadShipLater(containers);
+        } else {
+            try {
+                currentQuantityOfContainers.set(currentQuantityOfContainers.get() + containers);
+                System.out.println(Thread.currentThread().getName() + " get unloaded  " + containers + " container.Port current capacity: " + this.getCurrentQuantityOfContainers());
+            } finally {
                 conditionToUnload.signalAll();
+                locker.unlock();
             }
-            currentQuantityOfContainers.set(currentQuantityOfContainers.get() + containers);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } finally {
-            System.out.println(Thread.currentThread().getName() + " get unloaded  " + containers + " container.Port current capacity: " + this.getCurrentQuantityOfContainers());
-            conditionToUnload.signalAll();
-            locker.unlock();
         }
     }
 
-    public void putContainersFromPortToShip(int containers) {
-
+    public void putContainersFromPortToShip(int containers) throws InterruptedException {
         locker.lock();
-        try {
-            int quantityOfAttemptsToLoad = 0;
-            while (currentQuantityOfContainers.get() - containers < 0) {
-                quantityOfAttemptsToLoad++;
-                if (quantityOfAttemptsToLoad > 0) {
-                    Thread.currentThread().interrupt();
-                }
+        if (containers > currentQuantityOfContainers.get()) {
+            tryToLoadShipLater(containers);
+        } else {
+            try {
+                currentQuantityOfContainers.set(currentQuantityOfContainers.get() - containers);
+                System.out.println(Thread.currentThread().getName() + " get loaded  " + containers + " container.Port current capacity: " + this.getCurrentQuantityOfContainers());
+            } finally {
+                conditionToLoad.signalAll();
+                locker.unlock();
+            }
+        }
+    }
+
+    public synchronized void tryToLoadOrUnloadShipLater(int containers) throws InterruptedException {
+        int quantityOfAttemptsToUnload = 0;
+        while (currentQuantityOfContainers.get() + containers > maxPortCapacity) {
+            System.out.println("Port has no ability to unload " + containers + " containers from " + Thread.currentThread().getName());
+            quantityOfAttemptsToUnload++;
+            if (quantityOfAttemptsToUnload > 0) {
+                containers = 0;
+                System.out.println(Thread.currentThread().getName() + " went to another port");
+                locker.unlock();
+            } else {
                 conditionToUnload.await();
                 conditionToLoad.signalAll();
             }
-            currentQuantityOfContainers.set(currentQuantityOfContainers.get() - containers);
-            System.out.println(Thread.currentThread().getName() + " get loaded  " + containers + " container.Port current capacity: " + this.getCurrentQuantityOfContainers());
-
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } finally {
-            conditionToLoad.signalAll();
-            locker.unlock();
         }
     }
+
+    public synchronized void tryToLoadShipLater(int containers) throws InterruptedException {
+        int quantityOfAttemptsToLoad = 0;
+        while (currentQuantityOfContainers.get() - containers < 0) {
+            System.out.println("Port has no ability to load " + containers + " to " + Thread.currentThread().getName());
+            quantityOfAttemptsToLoad++;
+            if (quantityOfAttemptsToLoad > 0) {
+                containers = 0;
+                System.out.println(Thread.currentThread().getName() + " went to another port");
+                locker.unlock();
+            } else {
+                conditionToLoad.await();
+                conditionToUnload.signalAll();
+            }
+        }
+    }
+
 }
+

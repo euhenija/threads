@@ -1,7 +1,5 @@
 package mainTask;
 
-import java.util.concurrent.atomic.AtomicBoolean;
-
 public class Ship implements Runnable {
     private Port destinationPort;
     private final int maxShipCapacity;
@@ -34,9 +32,14 @@ public class Ship implements Runnable {
         try {
             destinationPort.quantityOfFreeDocks.acquire();
             if (this.getTypeOfOperation().equals("load")) {
-                checkShipStateAfterAttemptToLoad();
+                int containersToLoad = maxShipCapacity - currentShipCapacity;
+                destinationPort.putContainersFromPortToShip(containersToLoad);
+                changeShipCurrentCapacityAfterLoading();
+                Thread.sleep(500);
             } else if (this.getTypeOfOperation().equals("unload")) {
-                checkShipStateAfterAttemptToUnload();
+                destinationPort.putContainersFromShipToPort(currentShipCapacity);
+                changeShipCurrentCapacityAfterUnloading();
+                Thread.sleep(500);
             }
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -46,30 +49,16 @@ public class Ship implements Runnable {
         }
     }
 
-    public void checkShipStateAfterAttemptToLoad() throws InterruptedException {
-        if (Thread.currentThread().isInterrupted()) {
-            int containersToLoad = currentShipCapacity;
-            destinationPort.putContainersFromPortToShip(containersToLoad);
-            showShipInformationAndWaitingStatus();
-            throw new InterruptedException();
-        } else {
-            int containersToLoad = maxShipCapacity - currentShipCapacity;
-            destinationPort.putContainersFromPortToShip(containersToLoad);
-            showShipInformationAndWaitingStatus();
-            Thread.sleep(500);
+
+    public void changeShipCurrentCapacityAfterLoading() {
+        if (destinationPort.getCurrentQuantityOfContainers() + (maxShipCapacity - currentShipCapacity) < destinationPort.getMaxPortCapacity()) {
+            this.currentShipCapacity = this.maxShipCapacity;
         }
     }
 
-    public void checkShipStateAfterAttemptToUnload() throws InterruptedException {
-        if (Thread.currentThread().isInterrupted()) {
-            destinationPort.putContainersFromShipToPort(0);
-            showShipInformationAndWaitingStatus();
-            throw new InterruptedException();
-        } else {
-            destinationPort.putContainersFromShipToPort(currentShipCapacity);
-            currentShipCapacity = 0;
-            showShipInformationAndWaitingStatus();
-            Thread.sleep(500);
+    public void changeShipCurrentCapacityAfterUnloading() {
+        if (destinationPort.getCurrentQuantityOfContainers() - currentShipCapacity > 0) {
+            this.currentShipCapacity = 0;
         }
     }
 
